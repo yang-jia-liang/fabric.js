@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        canvas {
+            border: 1px solid gray;
+        }
+
+        img {
+            position: absolute;
+            left: 999px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<button onclick="getObject()">获取图层</button>
+
+<button onclick="saveCanvas()">保存画布</button>
+<button onclick="restoreCanvas()">加载保存的画布</button>
+
+<button onclick="getImage()">画布截图</button>
+
+<label>
+    自由绘制模式
+    <input type="checkbox" onchange="freePaint(this)">
+</label>
+
+<img src="https://static.alphacoders.com/alpha_system_360.png" alt="">
+</body>
+</html>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.2.4/fabric.js"></script>
+<script>
+    /**
+        Why fabric ?
+        [https://www.jianshu.com/p/1a2efc425c6f]
+        [https://juejin.cn/post/7140812541197811726]
+
+        1. 不需要 clearRect 清除画布，修改属性后 renderAll 就可以获得全新的内容
+     * */
+</script>
+<script>
+    // var fcanvas = new fabric.StaticCanvas('canvas', {  // 静态画布
+    var fcanvas = new fabric.Canvas('canvas', {           // 交互式画布
+
+        // backgroundColor: 'blue'        // 画布背景色为蓝色
+        // preserveObjectStacking: true   // 禁止选中的图层置于顶级。后添加的图层会盖在先添加的图层上，选中的图层会显示在顶层（方便你操作，失焦后就恢复原来的层级了）
+
+        // perPixelTargetFind: true,      // 点击真实图像才能选中和拖拽图层，点击padding处不行。
+
+        // selectionColor: 'red',         // 鼠标点击拖拽 框选图层时，矩形的背景颜色
+        // selectionBorderColor: 'red',   // 鼠标点击拖拽 框选图层时，矩形的边框颜色
+        // selectionLineWidth: 20         // 鼠标点击拖拽 框选图层时，矩形的边框大小
+        // selectionDashArray: [10, 5],   // 鼠标点击拖拽 框选图层时，矩形的虚线边框（首先要设置边框颜色）。 [10px线 - 5px间隔 - 10px线 ...]
+        // selection: false,              // 禁止 鼠标点击拖拽 框选图层
+
+        // isDrawingMode: true,           // 自由绘制模式，画布上点击和移动会被解释为铅笔。（需要关闭框选图层）
+    });
+
+    // 设置宽高
+    fcanvas.setWidth(300);
+    fcanvas.setHeight(300);
+
+
+    // 事件监听
+    function Observer() {
+        // 监听添加图层
+        fcanvas.on('object:added', (e) => {
+            console.log('添加图层');
+        })
+
+
+        // 监听图层变化（放大/缩小/移动/旋转）
+        fcanvas.on('object:modified', (e) => {
+            const { action, target } = e;
+
+            switch (action) {
+                case 'drag':
+                    console.log('拖拽');
+                    break;
+                case 'scale':
+                    console.log('缩放')
+                    break;
+                case 'rotate':
+                    console.log('旋转')
+                    break;
+            }
+
+            // target是操作的图层
+            // console.log(target);
+            // console.log(target.toDataURL());
+        });
+
+
+        // 监听添加图层
+        fcanvas.on('object:removed', (e) => {
+            console.log('删除图层');
+        })
+
+
+        // 监听图层首次获得焦点
+        // 一个图层获得焦点时，点击另一个图层不会触发，要先失焦再点击图层才能重新触发
+        // 可鼠标点击框选，同时选中多个图层
+        fcanvas.on('selection:created', (e) => {
+            const { selected, target } = e;
+
+            console.log('图层首次获得焦点');
+            console.log(`图层中包含${selected.length}个图层`);
+        });
+
+
+        // 监听图层选中切换
+        // 首次选中图层不触发 | 选中图层 - 失焦 - 再次选中 不触发
+        // 选中一个图层 - 选中另一个图层 触发
+        fcanvas.on('selection:updated', (e) => {
+            const { selected, deselected } = e;
+
+            console.log({desc: '上次选中的图层', deselected});
+            console.log({desc: '这次选中的图层', selected});
+        });
+
+
+        // 监听图层取消选中
+        fcanvas.on('selection:cleared', (e) => {
+            const { deselected } = e;
+
+            console.log({desc: '取消选中的图层', deselected});
+        });
+
+
+        // 监听鼠标点击
+        fcanvas.on('mouse:down', function(e) {
+            if (e.target) {
+                console.log('图层被点击');
+            }
+            else {
+                console.log('画布被点击');
+            }
+        });
+
+
+        // 监听笔迹创建
+        // 自由绘制模式下，抬起鼠标触发
+        fcanvas.on('path:created', function(e) {
+            console.log('笔迹创建');
+        });
+
+        // [鼠标、滚轮事件应用： http://fabricjs.com/fabric-intro-part-5#step1 ]
+
+        // 监听鼠标滚轮
+        fcanvas.on('mouse:wheel', function(opt) {
+            const delta = opt.e.deltaY;
+            let zoom = fcanvas.getZoom();
+            zoom *= 0.999 ** delta;
+            if (zoom > 20) zoom = 20;
+            if (zoom < 0.01) zoom = 0.01;
+            fcanvas.setZoom(zoom);
+            opt.e.preventDefault();
+            opt.e.stopPropagation();
+        })
+    }
+    Observer();
+
+
+    // 添加矩形
+    function addRect() {
+        const rect = new fabric.Rect({
+            top : 100,
+            left : 100,
+            width : 60,
+            height : 70,
+            fill : 'red',
+
+            // 虚线描边，同 selectionDashArray
+            stroke: 'green',
+            strokeDashArray: [5, 5],
+
+            angle: 0,             // 旋转角度
+            // selectable: false, // 禁止 鼠标点击拖拽 框选图层 选中当前图层
+        });
+
+        fcanvas.add(rect);
+
+        // 改变属性
+        setTimeout(() => {
+            rect.set({
+                left: 150
+            })
+
+            fcanvas.renderAll();
+        }, 2000);
+
+
+        // 动画
+        // 旋转中心在图层左上角
+        rect.animate('angle', 180, {
+            onChange: fcanvas.renderAll.bind(fcanvas),
+            duration: 1000,                         // 默认500
+            onComplete: () => {
+                console.log('动画完成');
+            },
+            from: 150,                              // 动画属性起始值
+            easing: fabric.util.ease.easeOutBounce, // 动画曲线 fabric.util.ease里有很多种曲线
+        });
+
+
+        // 直接监听图层对象
+        rect.on('selected', function() {
+            console.log('rect 被选中');
+        });
+    }
+    addRect()
+
+
+
+    // 设置背景（图片/颜色）
+    function setBackground() {
+        // 设置颜色1
+        // fcanvas.backgroundColor = 'blue';
+
+        // 设置颜色2
+        // fcanvas.setBackgroundColor('skyblue');
+
+        // 读取图片地址，设置画布背景
+        fabric.Image.fromURL('https://images7.alphacoders.com/125/thumbbig-1255700.jpg', (img) => {
+            img.set({
+                // 通过scale来设置图片大小，这里设置和画布一样大
+                scaleX: fcanvas.width / img.width,
+                scaleY: fcanvas.height / img.height,
+            });
+
+            // 设置背景
+            fcanvas.setBackgroundImage(img, fcanvas.renderAll.bind(fcanvas));
+            fcanvas.renderAll();
+        });
+    }
+
+
+    // 添加图片图层
+    function addImage() {
+        // 添加图片1
+        const imgInstance = new fabric.Image(document.querySelector('img'), {
+            left: 100,      // 图片相对画布的左侧距离
+            top: 100,       // 图片相对画布的顶部距离
+            angle: 30,      // 图片旋转角度
+            opacity: 0.85,  // 图片透明度
+
+            // 这里可以通过scaleX和scaleY来设置图片绘制后的大小，这里为原来大小的一半
+            scaleX: 0.5,
+            scaleY: 0.5,
+        });
+        fcanvas.add(imgInstance);
+
+
+        // 添加图片2
+        // fabric.Image.fromURL('http://fabricjs.com/favicon.ico', (img) => {
+        fabric.Image.fromURL('fabric.ico', (img) => {
+            img.set({
+                hasControls: false,    // 是否支持缩放、旋转
+                hasBorders : false,    // 选中状态是否有边框
+                borderColor: 'orange', // 图层选中状态边框的颜色
+            });
+
+            // 添加滤镜（跨域图片不行）
+            img.filters.push(new fabric.Image.filters.Grayscale());
+            // 图片加载完成之后，应用滤镜效果
+            img.applyFilters();
+            // 将处理后的图片添加到canvas画布上
+
+            fcanvas.add(img);
+        });
+    }
+    addImage();
+
+    // https://gw.alipayobjects.com/zos/rmsportal/UTjFYEzMSYVwzxIGVhMu.png
+
+    // 添加文字图层，双击可编辑文字
+    function addText() {
+        const text = new fabric.Textbox('fabric', {
+            left: 100,
+            top: 150,
+
+            width: 200,              // 图层初始宽度，如果文字超过初始宽度，则宽度为刚好容纳文字的宽度，编辑状态文字超出最大宽度，宽度自动扩展
+            fontSize: 28,            // 字体大小
+            fontWeight: 800,         // 字体粗细（数字或关键字 normal | bold）
+            fill: 'red',             // 字体颜色
+            fontStyle: 'italic',     // normal | italic
+            fontFamily: 'Delicious', // 设置字体
+            stroke: 'green',         // 描边颜色
+            strokeWidth: 3,          // 描边宽度
+
+            underline: true,
+            linethrough: true,
+            overline: true,
+
+            shadow: 'green -5px -5px 3px', // 文字阴影，同css的text-shadow
+
+            textAlign: 'center',        // 文字水平对齐方式，left | center | right
+
+            lineHeight: 3,
+
+            textBackgroundColor: 'rgb(0,200,0)', // 文本背景颜色
+
+            hasControls: false,        // 是否支持缩放、旋转
+            borderColor: 'orange',     // 图层选中状态边框的颜色
+            editingBorderColor: 'blue' // 双击进入编辑状态时的边框颜色
+        });
+        fcanvas.add(text);
+    }
+    addText()
+
+
+    // 获取选中的图层
+    function getObject() {
+        const activeObj = fcanvas.getActiveObject();
+
+        if (activeObj) {
+            const { _objects } = activeObj;
+
+            console.log(`图层中包含${_objects?.length || 1}个图层`);
+
+            rotate(activeObj);
+            // reverse(activeObj);
+            // remove(activeObj);
+            // setZIndex(activeObj);
+        }
+
+        // fcanvas.item(0);      // 获取第一个图层，索引从0开始
+        // fcanvas.getObjects(); // 获取所有图层
+    }
+
+
+
+    // 旋转图层
+    // 旋转中心在图层的中心点
+    function rotate(obj) {
+        // 顺时针90°旋转
+        const currAngle = obj.angle; // 当前图层的角度
+        const angle = currAngle === 360 ? 90 :currAngle + 90;
+        obj.rotate(angle);
+
+        // 所有图层的操作之后，都需要调用这个方法
+        fcanvas.renderAll()
+    }
+
+
+    // 翻转图层
+    function reverse(obj) {
+        obj.set({
+            scaleX: -obj.scaleX, // 水平翻转
+            scaleY: -obj.scaleY, // 垂直翻转
+        })
+
+        fcanvas.renderAll();
+    }
+
+
+    // 删除图层
+    function remove(obj) {
+        // 单图层
+        if (obj.target) {
+            fcanvas.remove(obj);
+        }
+
+        // 多图层
+        if (obj._objects) {
+            obj._objects.forEach(item => fcanvas.remove(item));
+        }
+    }
+
+
+    // 设置层级
+    function setZIndex(obj) {
+        // obj.bringForward();    // 上移层级
+        // obj.sendBackwards();   // 下移层级，一直下移也不会不可见
+        fcanvas.moveTo(obj, 44);  // 指定层级，相同层级，后设置的在上面，负数不会让图层不可见
+    }
+
+
+    // 保存画布信息
+    function saveCanvas() {
+        const _fcanvas = fcanvas.toJSON();
+
+        sessionStorage.setItem('fcanvas', JSON.stringify(_fcanvas));
+    }
+
+
+    // 恢复画布
+    function restoreCanvas() {
+        fcanvas.loadFromJSON(JSON.parse(sessionStorage.getItem('fcanvas')), () => {
+            fcanvas.renderAll();
+        });
+    }
+
+
+    // 画布截图
+    function getImage() {
+        // 跨域图片会报错
+        console.log(fcanvas.toDataURL());
+    }
+
+
+    // 自由绘制模式
+    function freePaint({ checked }) {
+        if (checked) {
+            fcanvas.set({
+                selection: false,              // 禁止 鼠标点击拖拽 框选图层
+                isDrawingMode: true,           // 自由绘制模式，画布上点击和移动会被解释为铅笔。（需要关闭框选图层）
+            })
+
+            fcanvas.freeDrawingBrush.color = 'blue' // 画笔颜色
+            fcanvas.freeDrawingBrush.width = 10;    // 画笔粗细
+        }
+        else {
+            fcanvas.set({
+                selection: true,               // 允许 鼠标点击拖拽 框选图层
+                isDrawingMode: false,          // 自由绘制模式，画布上点击和移动会被解释为铅笔。（需要关闭框选图层）
+            })
+        }
+    }
+
+
+    // 锁定图层
+    function lockObj() {
+        // fcanvas.item(0);      // 获取第一个图层，索引从0开始
+        // fcanvas.getObjects(); // 获取所有图层
+
+        fcanvas.item(0).set({
+            // lockMovementX: true, // 禁止水平移动
+            // lockMovementY: true, // 禁止垂直移动
+            // lockRotation: true,  // 禁止旋转
+            // lockScalingX: true,  // 禁止水平缩放
+            // lockScalingY: true,  // 禁止垂直缩放
+        })
+    }
+    lockObj();
+</script>
